@@ -1,0 +1,18 @@
+DEBUG: true
+server:
+ port: 8080
+ 
+logging:
+ file: /home/ofer/Ofer/logs\currencyRates\currencyRates.log
+ level:
+    il.co.boj.currencyRates.service: debug
+    
+    
+
+CurrencyRates:
+  inputFolder: listening path/in/
+  outPutFolder: listening path/out/
+  archiveFolder: listening path/archive/
+  FailedFolder: listening path/failed/
+  TestDecodingFolder: listening path/testDecoding/
+  destination: http://localhost:8080/file

@@ -1,0 +1,23 @@
+FH00000002FXCURRENCY20171011XXXX0001XXXXXXXXX
+RD20170825XXX                           3.596                XXX
+RD20170825XXX                          4.6078                XXX
+RD20170825XXX                           0.446                XXX
+RD20170825XXX                           3.732                XXX
+RD20170825XXX                           2.874                XXX
+RD20170825XXX                          0.5702                XXX
+RD20170825XXX                          0.2728                XXX
+RD20170825XXX                          2.8443                XXX
+RD20170825XXX                          4.2415                XXX
+RD20170825XXX                          0.4593                XXX
+RD20170825XXX                          0.4593                XXX
+RD20170825XXX                           3.279                XXX
+RD20170825XXX                          2.5992                XXX
+RD20170825XXX                          1.0319                XXX
+RD20170825XXX                          0.2035                XXX
+RD20170825XXX                          1.1423                XXX
+RD20170825XXX                          0.0608                XXX
+RD20170825XXX                          0.0561                XXX
+RD20170825XXX                          0.2692                XXX
+RD20170825XXX                          0.5733                XXX
+RD20170825XXX                          2.6419                XXX
+FT          21
