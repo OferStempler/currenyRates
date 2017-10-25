@@ -12,13 +12,13 @@ import il.co.boj.currencyRates.service.ConvertToRS2;
 
 @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class})
 @SpringBootApplication
-public class CurrencyRatesApplication extends SpringBootServletInitializer {
-
-	//this is not the conventional Spring init. This one start the wanted method after start up.
+public class Application extends SpringBootServletInitializer {
+	
+	//this is not the conventional Spring init for web/db. This one start the wanted method after start up.
 	public static void main(String[] args) {
 
-		ConfigurableApplicationContext context = SpringApplication.run(CurrencyRatesApplication.class, args);
-
+		ConfigurableApplicationContext context = SpringApplication.run(Application.class, args);
+		
 		context.getBean(ConvertToRS2.class).listenToFolder();
 	}
 }

@@ -15,5 +15,6 @@ public class CurrencyRatesConfig {
 	private String archiveFolder;
 	private String destination;
 	private String FailedFolder;
+	private String errorFolder;
 	private String TestDecodingFolder;
 }

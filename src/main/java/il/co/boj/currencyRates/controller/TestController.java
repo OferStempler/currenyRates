@@ -1,12 +1,18 @@
 package il.co.boj.currencyRates.controller;
 
+import java.util.Date;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 import il.co.boj.currencyRates.model.FileData;
 import il.co.boj.currencyRates.model.PrepaidResponse;
@@ -36,8 +42,14 @@ public class TestController {
 			response.setErrorMessage("Base64 content decoding failed.");	
 		}
 		return response;
-		
-		
+			
 	}
-	
+	//-----------------------------------------------------------------------------------------------------------------
+    @RequestMapping(value = {"/test", "/monitor"}, method = RequestMethod.GET, produces = {"application/json"})
+    @ResponseStatus(HttpStatus.OK)
+    public @ResponseBody  String test(HttpServletRequest request, HttpServletResponse response) {
+        String str = "CurrencyRates is jacked up and good to go. " + new Date();
+        log.trace(str);
+        return str;
+    }
 }

@@ -1,12 +1,12 @@
 package il.co.boj.currencyRates.service.serviceImpl;
 
-//import static org.hamcrest.CoreMatchers.nullValue;
-
 import il.co.boj.currencyRates.configuration.CurrencyRatesConfig;
 import il.co.boj.currencyRates.model.FileData;
 import il.co.boj.currencyRates.model.PrepaidResponse;
 import il.co.boj.currencyRates.service.ConvertToRS2;
+import il.co.boj.currencyRates.service.Utils;
 import lombok.extern.log4j.Log4j;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.tomcat.util.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.converter.StringHttpMessageConverter;
@@ -32,19 +32,28 @@ import java.util.Map;
 public class ConvertToRS2Impl implements ConvertToRS2 {
 
 	
+	
 	@Autowired
 	CurrencyRatesConfig config;
-
+	
+	@Autowired
+	Utils utils;
+	
+	@Autowired
+	private Map<String, String> currencyMap;
+	boolean succsess = true;
 	final String CURRENCY = "CURRENCY";
 	
 	// HEADER PARAMETERS 
 	final String HEADER_IDENTIFIER = "FH";
-	final String INSTITUTION_NUMBER = "00000002";
+	final String INSTITUTION_NUMBER = "00000007";
 	final String FIELD_LABEL = "FXCURRENCY";
 	final String LAYOUT_VERSION = "0001";
-	final String FX_RATE_CATEGORY = "XXX";
-	final String BASE_CURRENCY = "XXX";
-	final String RATE_FORMULA = "XXX";
+	final String FX_RATE_CATEGORY = "001";
+	final String BASE_CURRENCY = "376";
+	final String RATE_FORMULA = "000";
+	
+	String SEQUENCE_NO = "";
 	
 	// FOOTER PARAMETERS
 	final String TRAILER_IDENTIFIER = "FT";
@@ -54,6 +63,11 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 	final String BODY_IDENTIFIER = "RD";
 	final String SALES_RATE = charsSpace16;
 	final String PURCHASE_RATE = charsSpace16;
+	final String CALCULATION_BASE = "000";
+	
+	
+	String yesterday = new SimpleDateFormat("yyyyMMdd").format(new Date());
+	int sequenceIdCounter = 0;
 	
 	@PostConstruct
 	private void init(){
@@ -64,6 +78,7 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 		propMap.put("InputArchiveFolder", config.getArchiveFolder());
 		propMap.put("DestinationFolder", config.getDestination());
 		propMap.put("FailedFolder", config.getFailedFolder());
+		propMap.put("ErrorFolder", config.getErrorFolder());
 
 	
 		propMap.forEach((k,v) -> {
@@ -74,12 +89,15 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 					+ "CurrencyRates.OutPutFolder"
 					+ "CurrencyRates.ArchiveFolder"
 					+ "CurrencyRates.Destination"
-					+ "CurrencyRates.FailedFolder");
+					+ "CurrencyRates.FailedFolder"
+					+ "CurrencyRates.ErrorFolder");
 				System.exit(0);
 			} else {
 				log.debug(k + ": " + v);
 			}
 		});
+		
+		 sequenceIdCounter = utils.gerCurrentSequenceNumber();
 		
 	}
 	
@@ -131,53 +149,63 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 	
     private void proccessFile(File current){          
                      
-    	try {
-                     if (current.isFile()){
-             		 String outputPath = config.getOutPutFolder();
-                     outputPath = outputPath +"/RS2-" + (new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss").format(new Date())) +".txt";
-                     File outputFile = new File(outputPath);
-							
-							String line = "";
-							BufferedReader reader = new BufferedReader(new FileReader(current));
-							BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile), 1024);
-							// build the header
-							String header = this.buildHeader();
-							writer.write(header + System.getProperty("line.separator"));
-							log.debug(header);
-							// read to message body
-							int records = 0;
-							while ((line = reader.readLine()) != null) {
-								String currencyCodeNumbers = line.substring(0, 2);
-								String dateNumber = line.substring(2, 10);
-								String rateNumber = String.valueOf((Float.parseFloat(line.substring(10, 26))) / 10_000);
-								// build the RS2 body
-								String body = this.buildBody(currencyCodeNumbers, dateNumber, rateNumber);
+		try {
+			if (current.isFile()) {
+				String outputPath = config.getOutPutFolder();
+				outputPath = outputPath + "/bw_boj_fx_" + (new SimpleDateFormat("yyyyMMdd").format(new Date()))
+						+ ".dat";
+				
+				File outputFile = new File(outputPath);
+				
 
-								writer.write(body + System.getProperty("line.separator"));
-								records++;
-								log.debug(body);
-							}
-								//build the Trailer
-								String fileTrailer  = this.buildFileTrailer(records);
-								writer.write(fileTrailer);
-								log.debug(fileTrailer);
-							reader.close();
-							writer.close();
-							
-							//create a base64 string from the file
-							String toBase64 = encodeFiletoBase64String(outputFile) ;
-							
-							//Post for url destination
-							FileData fileData = new FileData();
-							fileData.setContent(toBase64);
-							fileData.setType(CURRENCY);
-							fileData.setName(outputFile.getName());
-							boolean sent = sendBase64(fileData);
-							
-							
-							//move the file to archive and delete from input
-							this.moveAndDelete(current, sent);
-                     }  
+				String line = "";
+				BufferedReader reader = new BufferedReader(new FileReader(current));
+				BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile), 1024);
+				// build the header
+				String header = this.buildHeader();
+				writer.write(header + System.getProperty("line.separator"));
+				log.debug(header);
+				// read to message body
+				int records = 0;
+				while ((line = reader.readLine()) != null) {
+					String currencyCodeNumbers = line.substring(0, 2);
+					String dateNumber = line.substring(2, 10);
+					String rateNumber = String.valueOf((Float.parseFloat(line.substring(10, 26))) / 10_000);
+					// build the RS2 body
+					String body = this.buildBody(currencyCodeNumbers, dateNumber, rateNumber, outputFile);
+					if (body == null) {
+//					succsess = false;
+						continue;
+					} else {
+					writer.write(body + System.getProperty("line.separator"));
+					records++;
+					log.debug(body);
+				}
+				}
+				// build the Trailer
+				String fileTrailer = this.buildFileTrailer(records);
+				writer.write(fileTrailer);
+				log.debug(fileTrailer);
+				reader.close();
+				writer.close();
+
+				// check if file was created properly
+//				if (succsess) {
+					// create a base64 string from the file
+					String toBase64 = encodeFiletoBase64String(outputFile);
+
+					// Post for url destination
+					FileData fileData = new FileData();
+					fileData.setContent(toBase64);
+					fileData.setType(CURRENCY);
+					fileData.setName(outputFile.getName());
+					succsess = sendBase64(fileData);
+
+//				}
+				// move the file to archive/failed folder, and delete from input
+					this.moveAndDelete(current, succsess);
+				
+			}
 		} catch (Exception e){
 			log.error("Could not build RS2 File" + e);
 		}
@@ -228,10 +256,9 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 	}
 
 	private String buildHeader(){
-		
 		String header= "";
-		String SEQUENCE_NO = "XXXX";
 		String Date = new SimpleDateFormat("yyyyMMdd").format(new Date());
+		String SEQUENCE_NO = doSequenceId();
 		
 		header = HEADER_IDENTIFIER + INSTITUTION_NUMBER + FIELD_LABEL + Date + SEQUENCE_NO + LAYOUT_VERSION + FX_RATE_CATEGORY 
 				+ BASE_CURRENCY + RATE_FORMULA;
@@ -239,14 +266,33 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 		return header;
 	}
 
-		private String buildBody (String currencyCodeNumbers, String dateNumber, String rateNumber){
+	private String doSequenceId(){
+		//make sure that every day the sequenceId will start from 001.	The Date and the sequenceId combination must be unique.	
+		String today = new SimpleDateFormat("yyyyMMdd").format(new Date());
+		if(today.equals(yesterday)){
+			sequenceIdCounter++;//make seq counter start from the number of todays files
+		} else {
+			sequenceIdCounter = 1;
+			yesterday = today;
+		}
+		
+		SEQUENCE_NO = String.format("%04d",sequenceIdCounter);
+		return SEQUENCE_NO;
+	}
+	
+		private String buildBody (String currencyCodeNumbers, String dateNumber, String rateNumber, File outputFile){
 			
 		String body = "";
 		
 		String EFFECTIVE_DATE = dateNumber;
-		String CURRENCY = "XXX";
+		String CURRENCY = currencyMap.get(currencyCodeNumbers); 
+		if (CURRENCY == null){
+			log.error("Could not find currency value for key [" +currencyCodeNumbers+"]" );
+			writeToErrorFile(currencyCodeNumbers, outputFile);
+			return null;
+		}
 		String MIDDLE_RATE = String.format("%16s",rateNumber); 
-		String CALCULATION_BASE = "XXX";
+		
 				
 		body = 	BODY_IDENTIFIER + EFFECTIVE_DATE + CURRENCY  + SALES_RATE+ MIDDLE_RATE
 				+ PURCHASE_RATE + CALCULATION_BASE;
@@ -254,17 +300,35 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 		return body;
 	}
 
+		private void writeToErrorFile(String currency, File outputFile){
+			
+		
+			try {
+				String fileNameNoExtenstion = FilenameUtils.removeExtension(outputFile.getName());
+				String date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+
+				String errorFilePath = config.getErrorFolder() + fileNameNoExtenstion + SEQUENCE_NO + "_error.txt";
+				BufferedWriter writer = new BufferedWriter(new FileWriter(errorFilePath), 1024);
+				String error = date + " Could not find currency value for key [" +currency+"] for file [" +outputFile.getName()+ "] "
+						+ "SEQUENCE_NO: + [" +SEQUENCE_NO+"]";
+				writer.write(error + System.getProperty("line.separator"));
+				writer.close();
+				log.debug("Unfound currency was written to error file");
+			} catch (IOException e) {
+				log.error("Could not write to error file: " + e);
+			}
+		}
 		
 		private void moveAndDelete(File filetoRemove, boolean sent) {
 			String archivePath = config.getArchiveFolder(); 
 			String failedPath = config.getFailedFolder();
 			String path = "";
-			String Date = new SimpleDateFormat("yyyy-MM-dd-HH.mm.ss").format(new Date());
+			String Date = new SimpleDateFormat("yyyyMMdd").format(new Date());
 			//if the file was successfully sent, send to archive. Else, sent to failed dir.
 			if(sent){
-			 path = archivePath+"input-" +Date + ".txt";
+			 path = archivePath+"bw_boj_fx_" +Date + "_"+ SEQUENCE_NO + ".txt";
 			}else {
-			 path = failedPath+"input-" +Date + ".txt";
+			 path = failedPath+"bw_boj_fx_" +Date + "_"+ SEQUENCE_NO + ".txt";
 			}
 			
 			File archive = new File(path);
@@ -295,8 +359,9 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 			
 		}
 
+		
 		@Override
-	// this is method for testing the encoding
+	// this is a method for testing the encoding
 	public boolean DecodeFileFromBase64String(FileData fileData) {
 			
 		boolean ok =true;	
@@ -306,7 +371,7 @@ public class ConvertToRS2Impl implements ConvertToRS2 {
 			FileOutputStream output = new FileOutputStream(new File(filePath));
 			output.write(binary);
 			output.close();
-			log.debug("Client testing for decoding base64 was successfull");
+			log.error("Client testing for decoding base64 was successfull");
 		} catch (Exception e) {
 			log.error("Could not encode file to base64" + e);
 			ok= false;
